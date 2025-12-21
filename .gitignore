@@ -1,0 +1,26 @@
+# Virtual environments
+venv/
+emotion/
+
+# ML models
+*.h5
+*.keras
+*.pkl
+*.ckpt
+*.tflite
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Images / uploads
+My_Four_Images/
+*.jpg
+*.png
+
+# Logs
+*.log

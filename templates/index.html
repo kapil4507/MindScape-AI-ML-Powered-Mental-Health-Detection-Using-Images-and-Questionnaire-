@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindScape - AI Mood Awareness</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', 'sans-serif';
+        }
+        .lucide-icon {
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white h-full">
+    <div id="root" class="h-full"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.development.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.development.js"></script>
+    
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+
+        const { useState, useEffect, useRef } = React;
+        
+const firebaseConfig = {
+  apiKey: "AIzaSyCQ6H-UderxXGHTwFPcCuI9U2e0EMAkWXM",
+  authDomain: "bri-minor-project-2025.firebaseapp.com",
+  projectId: "bri-minor-project-2025",
+  storageBucket: "bri-minor-project-2025.firebasestorage.app",
+  messagingSenderId: "1016113369083",
+  appId: "1:1016113369083:web:1d7c43826a5156fed4455e",
+  measurementId: "G-SL0RJGPXSE"
+};
+
+        const Icon = ({ name, size, className }) => {
+            const iconRef = useRef(null);
+
+            useEffect(() => {
+                if (iconRef.current && lucide.icons[name]) {
+                    const iconHTML = lucide.icons[name].toSvg({
+                        width: size || 24,
+                        height: size || 24,
+                        class: `lucide-icon ${className || ''}`,
+                    });
+                    iconRef.current.innerHTML = iconHTML;
+                }
+            }, [name, size, className]);
+
+            const spanStyle = { 
+                width: size, 
+                height: size, 
+                display: 'inline-block' 
+            };
+
+            return <span ref={iconRef} style={spanStyle} />;
+        };
+
+
+
+        const LoadingSpinner = () => (
+            <div className="flex justify-center items-center p-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+        );
+
+        const DisclaimerModal = ({ onAgree, onDecline, title = "User Consent & Disclaimer", children }) => {
+            return (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-800 rounded-xl shadow-2xl p-6 max-w-lg w-full border border-slate-700">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-2">
+                                <Icon name="shield-check" className="text-yellow-400" size={24} />
+                                <h2 className="text-2xl font-bold">{title}</h2>
+                            </div>
+                            <button onClick={onDecline} className="text-slate-400 hover:text-white">
+                                <Icon name="x" size={24} />
+                            </button>
+                        </div>
+                        
+                        {/* Custom content for the modal */}
+                        {children}
+
+                        <div className="flex justify-end gap-4 mt-6">
+                            <button
+                                onClick={onDecline}
+                                className="px-6 py-2 rounded-lg font-semibold bg-slate-700 hover:bg-slate-600 transition-colors"
+                            >
+                                Decline
+                            </button>
+                            <button
+                                onClick={onAgree}
+                                className="px-6 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                            >
+                                I Agree & Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Page Components ---
+
+        const Navbar = ({ page, user, setPage }) => {
+            const handleLogout = () => {
+                firebase.auth().signOut().catch(err => console.error("Logout Error:", err.message));
+            };
+
+            return (
+                <nav className="bg-slate-900/80 backdrop-blur-md border-b border-slate-700 p-4 flex justify-between items-center sticky top-0 z-40">
+                    <div 
+                        className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent cursor-pointer"
+                        onClick={() => setPage('home')}
+                    >
+                        MindScape
+                    </div>
+                    <div className="flex items-center gap-4">
+                        {user ? (
+                            <>
+                                <span className="text-sm text-slate-400 hidden sm:block">Welcome, {user.email}</span>
+                                {/* Navbar is simplified, dashboard is on homepage */}
+                                <button
+                                    onClick={handleLogout}
+                                    title="Logout"
+                                    className="p-2 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+                                >
+                                    <Icon name="log-out" size={20} />
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => setPage('login')}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+                                >
+                                    <Icon name="log-in" size={18} />
+                                    <span>Login</span>
+                                </button>
+                                <button
+                                    onClick={() => setPage('signup')}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-500 transition-colors"
+                                >
+                                    <Icon name="user" size={18} />
+                                    <span>Sign Up</span>
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </nav>
+            );
+        };
+
+        const HomePage = ({ setPage, user, hasCompletedAssessments, hasUploadedPhoto }) => {
+            
+            const handleLogout = () => {
+                firebase.auth().signOut().catch(err => console.error("Logout Error:", err.message));
+            };
+
+            const allTasksComplete = hasCompletedAssessments && hasUploadedPhoto;
+            
+            // This is the view for logged-OUT users
+            if (!user) {
+                return (
+                    <div className="flex-grow flex flex-col items-center justify-center p-8 text-center">
+                        <div className="max-w-3xl">
+                            <h1 className="text-5xl md:text-7xl font-extrabold mb-6">
+                                Welcome to <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">MindScape</span>
+                            </h1>
+
+                            {/* --- NEW CONTENT START --- */}
+                            
+                            <p className="text-2xl md:text-3xl font-medium text-slate-200 mb-12">
+                                “We don’t judge your mind — we help you understand it.”
+                            </p>
+
+                            <div className="space-y-10 text-left bg-slate-800/50 p-8 rounded-2xl border border-slate-700">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-100 mb-3">🪞 About Us</h2>
+                                    <p className="text-lg text-slate-300 mb-4">
+                                        We often share pieces of ourselves online — through captions, colors, pictures, and moods.
+                                        MindScape gently analyzes the stories your posts tell — not to label you, but to help you see patterns that reflect your inner world.
+                                    </p>
+                                    <p className="text-lg text-slate-300">
+                                        This project combines AI-powered image and text analysis with clinically recognized mental health screening tools (like GAD-7 and PHQ-9) to promote self-awareness and mental well-being.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-100 mb-3">💫 Our Approach</h2>
+                                    <p className="text-lg text-slate-300 mb-4">
+                                        We believe every person’s digital expression holds meaning — from the tones in your photos to the words you choose.
+                                    </p>
+                                    <p className="text-lg text-slate-300 mb-4">
+                                        Our AI looks for emotional cues and sentiment patterns that might align with your mental state — not to diagnose, but to help you understand the chaos and beauty within your mind.
+                                    </p>
+                                    <p className="text-xl font-medium italic text-slate-200">
+                                        “We don’t see data; we see feelings translated through pixels and words.”
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-2xl font-bold text-yellow-300 mb-3">⚖️ Important Note</h2>
+                                    <div className="text-lg text-yellow-200 bg-yellow-900/30 p-4 rounded-lg border border-yellow-700 space-y-3">
+                                        <p>This is an awareness and research tool only. It is F<strong>not a substitute</strong> for professional diagnosis or therapy.</p>
+                                        <p>If your responses indicate high distress, we’ll encourage you to seek support from a qualified mental health professional.</p>
+                                        <p>You will be asked for your consent before any analysis. Your data is handled with strict confidentiality and used only for awareness and study purposes.</p>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-100 mb-3">🌻 A Gentle Reminder</h2>
+                                    <p className="text-lg text-slate-300">
+                                        You are more than your thoughts, more than your posts, and more than what you feel right now.
+                                        <br />
+                                        We’re just here to help you listen to your mind’s whispers — and make sense of them, one reflection at a time.
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {/* --- NEW CONTENT END --- */}
+                            
+                            <button
+                                onClick={() => setPage('login')}
+                                className="px-10 py-4 rounded-lg text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white transition-all transform hover:scale-105 shadow-lg mt-12"
+                            >
+                                Get Started
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- NEW: This is the view for LOGGED-IN users (the Dashboard) ---
+            return (
+                <div className="flex-grow flex flex-col items-center justify-center p-8 text-center relative">
+
+  {/* Title */}
+  <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
+    Your Wellness Dashboard
+  </h1>
+
+  <p className="text-xl text-slate-300 mb-8">
+    Complete the steps below to generate your combined report.
+  </p>
+
+  <div className="h-px w-32 bg-gradient-to-r from-blue-400 to-purple-500 mb-10" />
+
+  {/* Steps */}
+  <div className="max-w-2xl w-full space-y-6 text-left">
+
+    {/* STEP 1 */}
+    <button
+      onClick={() => setPage('questionnaire')}
+      disabled={hasCompletedAssessments}
+      className={`w-full p-6 rounded-xl border transition-all
+        ${hasCompletedAssessments
+          ? 'bg-slate-900 border-slate-700 opacity-60 cursor-not-allowed'
+          : 'bg-slate-800 hover:bg-slate-700 border-slate-700'}
+      `}
+    >
+      <h3 className="text-xl font-bold text-teal-400 mb-1">
+        Step 1: Complete Self-Assessment
+      </h3>
+      <p className="text-slate-300">
+        Take the combined GAD-7 & PHQ-9 questionnaire.
+      </p>
+    </button>
+
+    {/* STEP 2 */}
+    <button
+      onClick={() => setPage('analyze')}
+      disabled={!hasCompletedAssessments}
+      className={`w-full p-6 rounded-xl border transition-all
+        ${hasCompletedAssessments
+          ? 'bg-slate-800 hover:bg-slate-700 border-slate-700'
+          : 'bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed'}
+      `}
+    >
+      <h3 className="text-xl font-bold text-blue-400 mb-1">
+        Step 2: Analyze Photos
+      </h3>
+      <p className="text-slate-300">
+        Upload exactly 4 images for visual analysis.
+      </p>
+    </button>
+
+  </div>
+
+  {/* LOGOUT BUTTON */}
+  <div className="fixed bottom-6 right-6">
+    <button
+  onClick={handleLogout}
+  className="flex items-center justify-center
+             px-8 py-4 rounded-xl
+             bg-slate-800 text-white text-lg font-semibold
+             hover:bg-red-600 transition-all shadow-lg"
+>
+  Logout
+</button>
+
+  </div>
+
+</div>
+
+            );
+        };
+
+        const AuthPage = ({ setPage, isLogin = false }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const title = isLogin ? "Welcome Back" : "Create Your Account";
+            const prompt = isLogin ? "Don't have an account?" : "Already have an account?";
+            const linkText = isLogin ? "Sign Up" : "Login";
+            const linkPage = isLogin ? "signup" : "login";
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                try {
+                    if (isLogin) {
+                        await firebase.auth().signInWithEmailAndPassword(email, password);
+                    } else {
+                        await firebase.auth().createUserWithEmailAndPassword(email, password);
+                    }
+                } catch (err) {
+                    setError(err.message.replace('Firebase: ', ''));
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="flex-grow flex items-center justify-center p-4">
+                    <div className="max-w-md w-full bg-slate-800 p-8 rounded-xl shadow-2xl border border-slate-700">
+                        <h2 className="text-3xl font-bold text-center mb-6">{title}</h2>
+                        
+                        {error && (
+                            <div className="bg-red-900/50 border border-red-700 text-red-300 p-3 rounded-lg mb-4 text-center">
+                                {error}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    className="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    minLength="6"
+                                    className="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full px-6 py-3 rounded-lg font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
+                            >
+                                {loading ? <LoadingSpinner /> : (isLogin ? "Login" : "Sign Up")}
+                            </button>
+                        </form>
+                        
+                        <p className="text-center text-slate-400 mt-6">
+                            {prompt} 
+                            <button
+                                onClick={() => setPage(linkPage)}
+                                className="font-semibold text-blue-400 hover:text-blue-300 ml-1"
+                            >
+                                {linkText}
+                            </button>
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+const AnalysisPage = ({ user, db, setPage, setHasUploadedPhoto, scores }) => {
+            const [imageFiles, setImageFiles] = useState([]);
+            const [previews, setPreviews] = useState([]);
+            const [consentGiven, setConsentGiven] = useState(false);
+            const [showModal, setShowModal] = useState(true);
+            
+            const fileInputRef = useRef(null);
+
+            const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+
+    if (files.length !== 4) {
+        alert("Please upload exactly 4 images.");
+        e.target.value = "";   // reset file input
+        setImageFiles([]);
+        setPreviews([]);
+        return;
+    }
+
+    setImageFiles(files);
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setPreviews(newPreviews);
+};
+
+            
+            // Note: We don't need saveAnalysisToFirestore here because the 
+            // Python backend now handles the logic and saving.
+
+            const handleConsent = () => {
+                setConsentGiven(true);
+                setShowModal(false);
+                // Log consent to Firestore just like before
+                try {
+                    db.collection('users').doc(user.uid).collection('consent').add({
+                        type: 'photoAnalysis',
+                        consented: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    });
+                } catch(e) { console.error(e); }
+            };
+
+            const handleDecline = () => {
+                setShowModal(false);
+                setPage('home');
+            };
+
+            if (showModal) {
+                return (
+                    <DisclaimerModal onAgree={handleConsent} onDecline={handleDecline}>
+                        <p className="text-slate-300 mb-4">
+                            Before you proceed, please read the following carefully:
+                        </p>
+                        <ul className="list-disc list-inside space-y-2 text-slate-300 mb-6 bg-slate-900 p-4 rounded-lg">
+                            <li>This tool is for educational and awareness purposes only.</li>
+                            <li>The analysis provided is a simulation and not a medical diagnosis.</li>
+                            <li>By clicking "I Agree," you consent to upload your image for analysis.</li>
+                            <li>If you are feeling distressed, please contact a qualified mental health professional.</li>
+                        </ul>
+                    </DisclaimerModal>
+                );
+            }
+            
+            return (
+                <div className="flex-grow flex flex-col items-center p-8">
+                    <div className="w-full max-w-2xl">
+                        <h2 className="text-3xl font-bold mb-6 text-center">PIXEL . PSYCHE . PERSONA</h2>
+                        
+                        {/* FORM TO CONNECT TO FLASK BACKEND */}
+                        <form action="/predict" method="POST" encType="multipart/form-data">
+                            
+                            {/* Pass Questionnaire Scores to Backend */}
+                            <input type="hidden" name="gad_score" value={scores.gad} />
+                            <input type="hidden" name="phq_score" value={scores.phq} />
+
+                            <div 
+                                className="w-full min-h-[300px] bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:border-blue-500 hover:text-blue-400 transition-colors"
+                                onClick={() => fileInputRef.current.click()}
+                            >
+                                {previews.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-2 p-4 w-full h-full">
+                                        {previews.map((src, index) => (
+                                            <img key={index} src={src} alt="Preview" className="w-full h-32 object-cover rounded-lg border border-slate-600" />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Icon name="camera" size={48} className="mb-4" />
+                                        <p className="font-semibold">Click to upload 4 pictures</p>
+                                        <p className="text-sm">Select multiple files (Ctrl+Click)</p>
+                                    </>
+                                )}
+                            </div>
+
+                            <input
+                                type="file"
+                                name="files[]" 
+                                multiple
+                                accept="image/png, image/jpeg, image/webp"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                required
+                            />
+                            
+                            {imageFiles.length > 0 && (
+                                <p className="text-center text-slate-300 mt-2">
+                                    {imageFiles.length} files selected
+                                </p>
+                            )}
+                            
+                            <button
+                                type="submit"
+                                disabled={imageFiles.length != 4}
+                                className="w-full px-6 py-4 mt-6 rounded-lg text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white transition-all shadow-lg disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed"
+                            >
+                                Analyze Images & Generate Report
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- REBUILT: Questionnaire Page ---
+
+        const GAD7_QUESTIONS = [
+            "Feeling nervous, anxious, or on edge",
+            "Not being able to stop or control worrying",
+            "Worrying too much about different things",
+            "Trouble relaxing",
+            "Being so restless that it's hard to sit still",
+            "Becoming easily annoyed or irritable",
+            "Feeling afraid as if something awful might happen"
+        ];
+
+        const PHQ9_QUESTIONS = [
+            "Little interest or pleasure in doing things",
+            "Feeling down, depressed, or hopeless",
+            "Trouble falling or staying asleep, or sleeping too much",
+            "Feeling tired or having little energy",
+            "Poor appetite or overeating",
+            "Feeling bad about yourself — or that you are a failure or have let yourself or your family down",
+            "Trouble concentrating on things, such as reading the newspaper or watching television",
+            "Moving or speaking so slowly that other people could have noticed. Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual",
+            "Thoughts that you would be better off dead, or of hurting yourself"
+        ];
+        
+        const QUESTION_OPTIONS = [
+            { text: "Not at all", value: 0 },
+            { text: "Several days", value: 1 },
+            { text: "More than half the days", value: 2 },
+            { text: "Nearly every day", value: 3 }
+        ];
+
+        const getGad7Interpretation = (score) => {
+            if (score <= 4) return { level: "Minimal", text: "Your score suggests minimal anxiety. You are likely managing your stress well." };
+            if (score <= 9) return { level: "Mild", text: "Your score suggests mild anxiety. You may be experiencing some worry or nervousness." };
+            if (score <= 14) return { level: "Moderate", text: "Your score suggests moderate anxiety. These symptoms may be interfering with your daily life." };
+            return { level: "Severe", text: "Your score suggests severe anxiety. It is highly recommended that you consult a mental health professional." };
+        };
+
+        const getPhq9Interpretation = (score) => {
+            if (score <= 4) return { level: "Minimal", text: "Your score suggests minimal or no depression." };
+            if (score <= 9) return { level: "Mild", text: "Your score suggests mild depression. You may be experiencing a low mood." };
+            if (score <= 14) return { level: "Moderate", text: "Your score suggests moderate depression. These symptoms may be affecting your daily life." };
+            if (score <= 19) return { level: "Moderately Severe", text: "Your score suggests moderately severe depression. It is recommended that you consult a mental health professional." };
+            return { level: "Severe", text: "Your score suggests severe depression. It is highly recommended that you consult a mental health professional." };
+        };
+
+        const QuestionnairePage = ({ user, db, setPage, setHasCompletedAssessments, setScores }) => {            const [gad7Answers, setGad7Answers] = useState(Array(GAD7_QUESTIONS.length).fill(null));
+            const [phq9Answers, setPhq9Answers] = useState(Array(PHQ9_QUESTIONS.length).fill(null));
+            
+            const [consentGiven, setConsentGiven] = useState(false);
+            const [showModal, setShowModal] = useState(true);
+            const [loading, setLoading] = useState(false);
+
+            const handleAnswerChange = (type, qIndex, value) => {
+                if (type === 'gad7') {
+                    const newAnswers = [...gad7Answers];
+                    newAnswers[qIndex] = value;
+                    setGad7Answers(newAnswers);
+                } else {
+                    const newAnswers = [...phq9Answers];
+                    newAnswers[qIndex] = value;
+                    setPhq9Answers(newAnswers);
+                }
+            };
+            
+            const saveAssessmentToFirestore = async (gad7Score, gad7Interp, phq9Score, phq9Interp) => {
+                 try {
+                    const assessmentCollectionRef = db.collection('users').doc(user.uid).collection('assessments');
+                    await assessmentCollectionRef.add({
+                        type: 'Combined',
+                        gad7Score: gad7Score,
+                        gad7Level: gad7Interp.level,
+                        gad7Text: gad7Interp.text,
+                        phq9Score: phq9Score,
+                        phq9Level: phq9Interp.level,
+                        phq9Text: phq9Interp.text,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    });
+                } catch (e) {
+                    console.error("Error adding assessment document: ", e);
+                }
+            };
+            
+            const handleConsent = () => {
+                setConsentGiven(true);
+                setShowModal(false);
+                try {
+                    db.collection('users').doc(user.uid).collection('consent').add({
+                        type: 'questionnaire',
+                        consented: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    });
+                } catch (e) {
+                    console.error("Error adding consent document: ", e);
+                }
+            };
+
+            const handleDecline = () => {
+                setShowModal(false);
+                setPage('home'); // Go back home if they decline
+            };
+
+            const allGad7Answered = gad7Answers.every(a => a !== null);
+            const allPhq9Answered = phq9Answers.every(a => a !== null);
+            const allAnswered = allGad7Answered && allPhq9Answered;
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!allAnswered) return;
+                
+                setLoading(true);
+
+                const gad7Score = gad7Answers.reduce((sum, val) => sum + val, 0);
+                const gad7Interp = getGad7Interpretation(gad7Score);
+                
+                const phq9Score = phq9Answers.reduce((sum, val) => sum + val, 0);
+                const phq9Interp = getPhq9Interpretation(phq9Score);
+
+                await saveAssessmentToFirestore(gad7Score, gad7Interp, phq9Score, phq9Interp);
+                setScores({ gad: gad7Score, phq: phq9Score });
+                setHasCompletedAssessments(true);
+                setLoading(false);
+                setPage('home');
+            };
+
+            if (showModal) {
+                return (
+                    <DisclaimerModal onAgree={handleConsent} onDecline={handleDecline} title="Assessment Disclaimer">
+                        <p className="text-slate-300 mb-4">
+                            These self-assessments are for awareness only.
+                        </p>
+                        <ul className="list-disc list-inside space-y-2 text-slate-300 mb-6 bg-slate-900 p-4 rounded-lg">
+                            <li>These tools are <strong>not a medical diagnosis</strong>.</li>
+                            <li>They are designed to help you reflect on your feelings.</li>
+                            <li>Your results will be saved to your user account.</li>
+                            <li>If you are in crisis, please contact a crisis hotline.</li>
+                        </ul>
+                    </DisclaimerModal>
+                );
+            }
+
+            return (
+                <div className="flex-grow flex flex-col items-center p-8">
+                    <form onSubmit={handleSubmit} className="w-full max-w-2xl bg-slate-800 p-8 rounded-xl shadow-2xl border border-slate-700">
+                        <h2 className="text-3xl font-bold text-center mb-6">Combined Self-Assessment</h2>
+                        <p className="text-center text-slate-400 mb-8">Over the last 2 weeks, how often have you been bothered by the following problems?</p>
+                        
+                        {/* GAD-7 Section */}
+                        <section className="mb-12">
+                            <h3 className="text-2xl font-bold text-teal-400 mb-6 border-b-2 border-teal-400 pb-2">Part 1: GAD-7 (Anxiety)</h3>
+                            <div className="space-y-8">
+                                {GAD7_QUESTIONS.map((q, qIndex) => (
+                                    <div key={`gad7-${qIndex}`} className="bg-slate-900 p-6 rounded-lg border border-slate-700">
+                                        <p className="text-lg font-semibold text-slate-200 mb-4">{qIndex + 1}. {q}</p>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between space-y-2 sm:space-y-0 sm:space-x-2">
+                                            {QUESTION_OPTIONS.map((opt, oIndex) => (
+                                                <label key={oIndex} className={`flex-1 p-3 rounded-lg text-center cursor-pointer transition-colors ${gad7Answers[qIndex] === opt.value ? 'bg-blue-600 text-white' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                                                    <input
+                                                        type="radio"
+                                                        name={`gad7-question-${qIndex}`}
+                                                        value={opt.value}
+                                                        checked={gad7Answers[qIndex] === opt.value}
+                                                        onChange={() => handleAnswerChange('gad7', qIndex, opt.value)}
+                                                        className="hidden"
+                                                    />
+                                                    {opt.text}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                        
+                        {/* PHQ-9 Section */}
+                        <section>
+                            <h3 className="text-2xl font-bold text-purple-400 mb-6 border-b-2 border-purple-400 pb-2">Part 2: PHQ-9 (Depression)</h3>
+                            <div className="space-y-8">
+                                {PHQ9_QUESTIONS.map((q, qIndex) => (
+                                    <div key={`phq9-${qIndex}`} className="bg-slate-900 p-6 rounded-lg border border-slate-700">
+                                        <p className="text-lg font-semibold text-slate-200 mb-4">{qIndex + 1}. {q}</p>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between space-y-2 sm:space-y-0 sm:space-x-2">
+                                            {QUESTION_OPTIONS.map((opt, oIndex) => (
+                                                <label key={oIndex} className={`flex-1 p-3 rounded-lg text-center cursor-pointer transition-colors ${phq9Answers[qIndex] === opt.value ? 'bg-blue-600 text-white' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                                                    <input
+                                                        type="radio"
+                                                        name={`phq9-question-${qIndex}`}
+                                                        value={opt.value}
+                                                        checked={phq9Answers[qIndex] === opt.value}
+                                                        onChange={() => handleAnswerChange('phq9', qIndex, opt.value)}
+                                                        className="hidden"
+                                                    />
+                                                    {opt.text}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                        
+                        <button
+                            type="button"
+                            onClick={() => setPage('home')}
+                            className="w-full px-6 py-3 mb-4 rounded-lg font-semibold bg-slate-700 hover:bg-slate-600 text-white transition-colors">
+                            ← Back to Dashboard
+                        </button>
+
+
+                        <button
+                            type="submit"
+                            disabled={!allAnswered || loading}
+                            className="w-full px-6 py-4 mt-12 rounded-lg text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white transition-all shadow-lg disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed"
+                        >
+                            {loading ? "Submitting..." : (allAnswered ? "Submit My Assessment" : "Please answer all questions")}
+                        </button>
+                    </form>
+                </div>
+            );
+        };
+        
+        // --- NEW: Result Page ---
+        
+        const ResultPage = ({ user, db, setPage }) => {
+            const [assessmentResult, setAssessmentResult] = useState(null);
+            const [photoResult, setPhotoResult] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const fetchResults = async () => {
+                    setLoading(true);
+                    try {
+                        // Fetch latest assessment
+                        const assessQuery = db.collection('users').doc(user.uid).collection('assessments')
+                            .orderBy('timestamp', 'desc').limit(1);
+                        const assessSnapshot = await assessQuery.get();
+                        if (!assessSnapshot.empty) {
+                            setAssessmentResult(assessSnapshot.docs[0].data());
+                        }
+
+                        // Fetch latest photo analysis
+                        const photoQuery = db.collection('users').doc(user.uid).collection('analyses')
+                            .orderBy('timestamp', 'desc').limit(1);
+                        const photoSnapshot = await photoQuery.get();
+                        if (!photoSnapshot.empty) {
+                            setPhotoResult(photoSnapshot.docs[0].data());
+                        }
+                        
+                    } catch (err) {
+                        console.error("Error fetching results: ", err);
+                    }
+                    setLoading(false);
+                };
+
+                fetchResults();
+            }, [user, db]);
+            
+            if (loading) {
+                return <div className="flex-grow flex items-center justify-center"><LoadingSpinner /></div>;
+            }
+            
+            if (!assessmentResult || !photoResult) {
+                return (
+                    <div className="flex-grow flex flex-col items-center justify-center p-8 text-center">
+                        <h2 className="text-2xl font-bold mb-4">Report Not Ready</h2>
+                        <p className="text-slate-300 mb-6">We couldn't find your results. Please ensure you have completed both steps.</p>
+                        <button
+                            onClick={() => setPage('home')}
+                            className="px-6 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-500 transition-colors"
+                        >
+                            Back to Dashboard
+                        </button>
+                    </div>
+                );
+            }
+            
+            // Generate a simple simulated insight
+            const getOverallInsight = () => {
+                const anxietyLevel = assessmentResult.gad7Level;
+                const depressionLevel = assessmentResult.phq9Level;
+                const mood = photoResult.simulatedMood;
+
+                if (anxietyLevel === 'Severe' || depressionLevel === 'Severe') {
+                    return "Your assessment results indicate a high level of distress. It is strongly recommended to speak with a mental health professional. Your photo analysis of 'Reflective' or 'Calm' may show a desire for peace, but your self-reported feelings are the most important indicator. Please seek support.";
+                }
+                if (anxietyLevel === 'Moderate' || depressionLevel === 'Moderate') {
+                     return `Your results suggest moderate levels of ${anxietyLevel === 'Moderate' ? 'anxiety' : 'depression'}. This may be impacting your daily life. Your photo's 'Focused' or 'Content' mood might reflect moments of clarity, but it's important to address the challenging feelings you're experiencing.`;
+                }
+                if (mood === 'Joyful' && (anxietyLevel === 'Mild' || depressionLevel === 'Mild')) {
+                    return "It's common to experience moments of joy, as your photo suggests, while still managing mild underlying feelings of anxiety or low-mood. This is a very human balance. Being aware of both is a great first step.";
+                }
+                return "Your results show minimal-to-mild distress, and your photo analysis suggests a 'Calm' or 'Joyful' mood. It appears you are managing your well-being effectively, but always remember to be mindful of your feelings.";
+            };
+
+            return (
+                <div className="flex-grow flex flex-col items-center p-8">
+                    <div className="w-full max-w-3xl">
+                        <h2 className="text-4xl font-bold mb-8 text-center">Your Combined Report</h2>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* --- Assessment Results --- */}
+                            <div className="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                                <h3 className="text-2xl font-bold mb-4 text-center text-teal-400">Self-Assessment</h3>
+                                
+                                <div className="mb-4">
+                                    <p className="text-lg text-slate-300">GAD-7 (Anxiety) Score:</p>
+                                    <p className="text-4xl font-extrabold text-blue-400">{assessmentResult.gad7Score} - {assessmentResult.gad7Level}</p>
+                                    <p className="text-sm text-slate-400">{assessmentResult.gad7Text}</p>
+                                </div>
+                                <div>
+                                    <p className="text-lg text-slate-300">PHQ-9 (Depression) Score:</p>
+                                    <p className="text-4xl font-extrabold text-purple-400">{assessmentResult.phq9Score} - {assessmentResult.phq9Level}</p>
+                                    <p className="text-sm text-slate-400">{assessmentResult.phq9Text}</p>
+                                </div>
+                            </div>
+                            
+                            {/* --- Photo Result --- */}
+                            <div className="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                                <h3 className="text-2xl font-bold mb-4 text-center text-blue-400">PIXEL . PSYCHE . PERSONA</h3>
+                                <p className="text-center text-lg text-slate-300">
+                                    Our simulated analysis of your photo ("{photoResult.fileName}") suggests a potential mood of:
+                                </p>
+                                <p className="text-center text-5xl font-extrabold my-8 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                                    {photoResult.simulatedMood}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {/* --- Overall Insight --- */}
+                        <div className="mt-8 bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                            <h3 className="text-2xl font-bold mb-4 text-center">Simulated Overall Insight</h3>
+                            <p className="text-lg text-slate-300 text-center">{getOverallInsight()}</p>
+                            
+                            <p className="text-center text-sm text-yellow-300 bg-yellow-900/30 p-3 rounded-lg border border-yellow-700 mt-6">
+                                <strong>Final Disclaimer:</strong> This is an illustrative, simulated report and <strong>not a medical diagnosis</strong>. Please consult a professional for advice.
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={() => setPage('home')}
+                            className="w-full max-w-xs mx-auto px-6 py-3 mt-8 rounded-lg font-semibold bg-blue-600 hover:bg-blue-500 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Icon name="arrow-left" size={18} />
+                            Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+
+        const Footer = () => (
+            <footer className="text-center p-6 border-t border-slate-700 text-slate-500">
+                &copy; {new Date().getFullYear()} MindScape Project. All rights reserved.
+            </footer>
+        );
+
+        // --- Main App Component ---
+
+        // --- MAIN APP COMPONENT ---
+        const App = () => {
+            const [page, setPage] = useState('home');
+            const [user, setUser] = useState(null);
+            const [loadingAuth, setLoadingAuth] = useState(true);
+            const [error, setError] = useState('');
+            
+            // --- THIS WAS MISSING ---
+            const [db, setDb] = useState(null);
+            
+            const [scores, setScores] = useState({ gad: 0, phq: 0 });
+            const [hasCompletedAssessments, setHasCompletedAssessments] = useState(false);
+            const [hasUploadedPhoto, setHasUploadedPhoto] = useState(false);
+
+            useEffect(() => {
+                const initFirebase = async () => {
+                    try {
+                        if (!firebase.apps.length) {
+                            await firebase.initializeApp(firebaseConfig);
+                        }
+                        
+                        const auth = firebase.auth();
+                        const firestore = firebase.firestore();
+                        
+                        // Save database reference to state so other pages can use it
+                        setDb(firestore); 
+
+                        const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+                            setUser(currentUser);
+                            if (currentUser && (page === 'login' || page === 'signup')) {
+                                setPage('home');
+                            }
+                            setLoadingAuth(false);
+                        });
+                        
+                        return () => unsubscribe();
+                    } catch (e) {
+                        console.error(e);
+                        setError(`Connection Failed: ${e.message}`);
+                        setLoadingAuth(false);
+                    }
+                };
+
+                initFirebase();
+            }, []);
+
+            if (loadingAuth) return <div className="h-full flex items-center justify-center"><LoadingSpinner /></div>;
+            
+            if (error) {
+                return (
+                    <div className="h-full flex items-center justify-center p-4">
+                        <div className="bg-red-900/50 border border-red-700 text-red-300 p-6 rounded-lg text-center">
+                            <h2 className="text-xl font-bold mb-2">Connection Error</h2>
+                            <p>{error}</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            switch (page) {
+                case 'home': 
+                    return <HomePage setPage={setPage} user={user} hasCompletedAssessments={hasCompletedAssessments} hasUploadedPhoto={hasUploadedPhoto} />;
+                case 'login': 
+                    return user ? <HomePage setPage={setPage} user={user} hasCompletedAssessments={hasCompletedAssessments} hasUploadedPhoto={hasUploadedPhoto} /> : <AuthPage setPage={setPage} isLogin={true} />;
+                case 'signup': 
+                    return user ? <HomePage setPage={setPage} user={user} hasCompletedAssessments={hasCompletedAssessments} hasUploadedPhoto={hasUploadedPhoto} /> : <AuthPage setPage={setPage} isLogin={false} />;
+                case 'questionnaire':
+                    if (!user) return <AuthPage setPage={setPage} isLogin={true} />;
+                    return <QuestionnairePage user={user} db={db} setPage={setPage} setHasCompletedAssessments={setHasCompletedAssessments} setScores={setScores} />;
+                case 'analyze':
+                    if (!user) return <AuthPage setPage={setPage} isLogin={true} />;
+                    return <AnalysisPage user={user} db={db} setPage={setPage} setHasUploadedPhoto={setHasUploadedPhoto} scores={scores} />;
+                case 'result':
+                    if (!user) return <AuthPage setPage={setPage} isLogin={true} />;
+                    return <ResultPage user={user} db={db} setPage={setPage} />;
+                default: 
+                    return <HomePage setPage={setPage} user={user} />;
+            }
+        };
+
+        // Mount the React app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+    </script>
+</body>
+</html>
+
+<!--{/* <div className="mt-12"> 
+                            <button
+                                onClick={() => setPage('result')}
+                                disabled={!allTasksComplete}
+                                className="w-full px-10 py-5 rounded-lg text-xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white transition-all transform hover:scale-105 shadow-lg disabled:from-slate-600 disabled:to-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {allTasksComplete ? "View My Combined Report" : "Complete Both Steps to View Report"}
+                            </button>
+                        </div> } -->
