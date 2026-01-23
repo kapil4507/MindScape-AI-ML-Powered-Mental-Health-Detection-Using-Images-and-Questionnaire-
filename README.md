@@ -46,8 +46,7 @@ This README documents everything required to deploy this project (locally and in
 
 1. Clone this repository
 ```bash
-git clone https://github.com/kapil4507/MindScape-Deployment.git .
-# or use the actual repo URL you maintain for this repository
+git clone https://github.com/kapil4507/MindScape-AI-ML-Powered-Mental-Health-Detection-Using-Images-and-Questionnaire-.git
 ```
 
 2. Create and activate a virtual environment (optional but recommended)
@@ -178,3 +177,4 @@ curl -X POST -F "gad_score=3" -F "phq_score=5" \
 - uploads/                (runtime upload directory)
 - requirements.txt
 - .env (optional)
+
